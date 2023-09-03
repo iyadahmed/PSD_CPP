@@ -1,4 +1,3 @@
 /.vscode
 /build
-/images.psd
-/images_photopea.psd
+*.psd
