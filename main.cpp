@@ -12,6 +12,8 @@
 #define IS_EVEN_OR_ZERO(x) (((x) & 1) == 0)
 #define IS_ODD(x) (((x) & 1) == 1)
 
+#define IS_STR_EQUAL(a, b, n) (memcmp((a), (b), (n)) == 0)
+
 enum class ColorMode {
   Bitmap = 0,
   Grayscale = 1,
@@ -122,6 +124,13 @@ struct LayerBlendingRanges {
   std::vector<BlendingRange> channel_blending_ranges;
 };
 
+struct AdditionalLayerInfo {
+  char signature[4];
+  char key[4];
+  uint32_t data_length;
+  std::vector<char> data;
+};
+
 struct LayerRecord {
   Rect rect;
   uint16_t num_channels;
@@ -151,6 +160,7 @@ struct LayerRecord {
   LayerMaskData layer_mask_data;
   LayerBlendingRanges layer_blending_ranges;
   std::string layer_name;
+  std::vector<AdditionalLayerInfo> additional_layer_info;
 };
 
 struct ChannelImageData {
@@ -403,6 +413,19 @@ LayerMaskData read_layer_mask_data(std::ifstream &in)
   return layer_mask_data;
 }
 
+AdditionalLayerInfo read_additional_layer_info(std::ifstream &in)
+{
+  AdditionalLayerInfo info;
+  in.read(info.signature, 4);
+  assert(IS_STR_EQUAL(info.signature, "8BIM", 4) || IS_STR_EQUAL(info.signature, "8B64", 4));
+
+  in.read(info.key, 4);
+  info.data_length = read_uint32(in);
+  info.data.resize(info.data_length);
+  in.read(info.data.data(), info.data_length);
+  return info;
+}
+
 LayerRecord read_layer_record(std::ifstream &in)
 {
   LayerRecord record;
@@ -425,10 +448,7 @@ LayerRecord read_layer_record(std::ifstream &in)
   if (record.length_of_extra_data == 0) {
     return record;
   }
-  // if (record.length_of_extra_data > 0) {
-  //   std::vector<char> extra_data(record.length_of_extra_data);
-  //   in.read(extra_data.data(), extra_data.size());
-  // }
+
   auto offset = in.tellg();
   offset += record.length_of_extra_data;
   record.layer_mask_data = read_layer_mask_data(in);
@@ -457,9 +477,10 @@ LayerRecord read_layer_record(std::ifstream &in)
   std::cout << record.layer_name << std::endl;
   std::cout << record.layer_name.length() << std::endl;
 
-  std::cout << "Remaining bytes: " << (offset - in.tellg()) << std::endl;
-
-  in.seekg(offset);
+  while (in.tellg() < offset) {
+    record.additional_layer_info.push_back(read_additional_layer_info(in));
+  }
+  assert(in.tellg() == offset);
 
   return record;
 }
