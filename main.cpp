@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -546,11 +547,17 @@ PSDFile read_psd(std::ifstream &in)
 
 int main()
 {
-  std::ifstream in;
-  in.exceptions(std::ifstream::failbit | std::ifstream::badbit | std::ifstream::eofbit);
-  in.open("../images.psd", std::ifstream::binary);
-  PSDFile psd = read_psd(in);
-  std::cout << psd.image_resources.size() << std::endl;
-  std::cout << psd.layer_mask_info.layer_info.layer_records.size() << std::endl;
+  for (const auto &dir_entry : std::filesystem::directory_iterator("../test_files")) {
+    if (dir_entry.is_regular_file()) {
+      std::cout << dir_entry.path() << std::endl;
+      std::ifstream in;
+      in.exceptions(std::ifstream::failbit | std::ifstream::badbit | std::ifstream::eofbit);
+      in.open(dir_entry.path(), std::ifstream::binary);
+
+      PSDFile psd = read_psd(in);
+      std::cout << psd.image_resources.size() << std::endl;
+      std::cout << psd.layer_mask_info.layer_info.layer_records.size() << std::endl;
+    }
+  }
   return 0;
 }
